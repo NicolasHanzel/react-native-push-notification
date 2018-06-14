@@ -18,12 +18,14 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
 import com.facebook.react.bridge.ReadableMap;
 
 import org.json.JSONArray;
+import org.json.JSONObject;
 import org.json.JSONException;
 
 import java.util.Arrays;
@@ -128,6 +130,9 @@ public class RNPushNotificationHelper {
         }
     }
 
+
+
+
     public void sendToNotificationCentre(Bundle bundle) {
         try {
             Class intentClass = getMainActivityClass();
@@ -141,6 +146,10 @@ public class RNPushNotificationHelper {
                 Log.d(LOG_TAG, "Cannot send to notification centre because there is no 'message' field in: " + bundle);
                 return;
             }
+
+            JSONObject dataExtra = getPushData(bundle.getString("data"));
+
+
 
             String notificationIdString = bundle.getString("id");
             if (notificationIdString == null) {
@@ -162,7 +171,7 @@ public class RNPushNotificationHelper {
                     .setTicker(bundle.getString("ticker"))
                     .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
-                    .setAutoCancel(bundle.getBoolean("autoCancel", true));
+                    .setAutoCancel(bundle.getBoolean("autoCancel", false));
 
             String group = bundle.getString("group");
             if (group != null) {
@@ -229,6 +238,13 @@ public class RNPushNotificationHelper {
             bundle.putBoolean("userInteraction", true);
             intent.putExtra("notification", bundle);
 
+            if (dataExtra != null) {
+
+                if (dataExtra.has("secDiff")) {
+                    notification.setTimeoutAfter(dataExtra.optLong("secDiff"));
+                }
+            }
+
             if (!bundle.containsKey("playSound") || bundle.getBoolean("playSound")) {
                 Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
                 String soundName = bundle.getString("soundName");
@@ -272,6 +288,8 @@ public class RNPushNotificationHelper {
                     PendingIntent.FLAG_UPDATE_CURRENT);
 
             NotificationManager notificationManager = notificationManager();
+
+            notificationManager.cancelAll();
 
             notification.setContentIntent(pendingIntent);
 
@@ -455,6 +473,14 @@ public class RNPushNotificationHelper {
 
     private NotificationManager notificationManager() {
         return (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+    }
+
+    private JSONObject getPushData(String dataString) {
+        try {
+            return new JSONObject(dataString);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static void commit(SharedPreferences.Editor editor) {
